@@ -149,7 +149,7 @@ def main(page: ft.Page):
                                 weight=ft.FontWeight.BOLD
                             ),
                             ft.IconButton(
-                                "delete",
+                                icon="delete",
                                 icon_size=18,
                                 icon_color="#999",
                                 on_click=lambda e, rid=r.get("id"): delete_r(rid)
@@ -158,7 +158,7 @@ def main(page: ft.Page):
                         bgcolor="white",
                         padding=12,
                         border_radius=10,
-                        margin=ft.margin.only(bottom=8),
+                        margin=ft.Margin(0, 0, 0, 8),
                     )
                 )
             
@@ -170,7 +170,6 @@ def main(page: ft.Page):
                             ft.Text("今日暂无记录", color="#999"),
                         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                         padding=40,
-                        alignment=ft.alignment.center,
                     )
                 ]
             
@@ -205,19 +204,19 @@ def main(page: ft.Page):
                     ]),
                     gradient=ft.LinearGradient(
                         colors=[PRIMARY, "#A29BFE"],
-                        begin=ft.alignment.top_left,
-                        end=ft.alignment.bottom_right,
+                        begin=ft.Alignment(-1, -1),
+                        end=ft.Alignment(1, 1),
                     ),
-                    padding=ft.padding.only(left=20, right=20, top=45, bottom=25),
-                    border_radius=ft.border_radius.only(bottom_left=25, bottom_right=25),
+                    padding=ft.Padding(20, 45, 20, 25),
+                    border_radius=ft.BorderRadius(0, 0, 25, 25),
                 ),
                 ft.Container(
                     ft.Text("今日记录", size=15, weight=ft.FontWeight.BOLD),
-                    padding=ft.padding.only(left=20, top=15, bottom=10),
+                    padding=ft.Padding(20, 15, 20, 10),
                 ),
                 ft.Container(
                     ft.Column(record_items, spacing=0),
-                    padding=ft.padding.symmetric(horizontal=15),
+                    padding=ft.Padding(15, 0, 15, 0),
                     expand=True,
                 ),
                 ft.Container(height=70),
@@ -278,7 +277,6 @@ def main(page: ft.Page):
                                     height=48,
                                     bgcolor=c.get("color", "#999") if selected else c.get("color", "#999") + "30",
                                     border_radius=12,
-                                    alignment=ft.alignment.center,
                                 ),
                                 ft.Text(c.get("name", ""), size=11, color="#333" if selected else "#888"),
                             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4),
@@ -346,9 +344,13 @@ def main(page: ft.Page):
                             date_text,
                         ], alignment=ft.MainAxisAlignment.CENTER),
                     ]),
-                    gradient=ft.LinearGradient(colors=[PRIMARY, "#A29BFE"]),
-                    padding=ft.padding.only(top=40, bottom=20, left=20, right=20),
-                    border_radius=ft.border_radius.only(bottom_left=25, bottom_right=25),
+                    gradient=ft.LinearGradient(
+                        colors=[PRIMARY, "#A29BFE"],
+                        begin=ft.Alignment(-1, -1),
+                        end=ft.Alignment(1, 1),
+                    ),
+                    padding=ft.Padding(20, 40, 20, 20),
+                    border_radius=ft.BorderRadius(0, 0, 25, 25),
                 ),
                 ft.Container(
                     ft.Column([
@@ -372,7 +374,7 @@ def main(page: ft.Page):
                             on_click=save_record,
                         ),
                     ]),
-                    padding=ft.padding.only(left=20, right=20, bottom=90),
+                    padding=ft.Padding(20, 0, 20, 90),
                 ),
             ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
         
@@ -392,10 +394,14 @@ def main(page: ft.Page):
             return ft.Column([
                 ft.Container(
                     ft.Text("设置", size=20, weight=ft.FontWeight.BOLD, color="white"),
-                    gradient=ft.LinearGradient(colors=[PRIMARY, "#A29BFE"]),
-                    padding=ft.padding.only(top=45, bottom=20),
-                    alignment=ft.alignment.center,
-                    border_radius=ft.border_radius.only(bottom_left=25, bottom_right=25),
+                    gradient=ft.LinearGradient(
+                        colors=[PRIMARY, "#A29BFE"],
+                        begin=ft.Alignment(-1, -1),
+                        end=ft.Alignment(1, 1),
+                    ),
+                    padding=ft.Padding(0, 45, 0, 20),
+                    border_radius=ft.BorderRadius(0, 0, 25, 25),
+                    alignment=ft.Alignment(0, 0),
                 ),
                 ft.Container(
                     ft.Row([
@@ -424,15 +430,15 @@ def main(page: ft.Page):
                         ft.Text("清空所有数据"),
                     ]),
                     bgcolor="white",
-                    margin=ft.margin.symmetric(horizontal=15),
+                    margin=ft.Margin(15, 0, 15, 0),
                     padding=15,
                     border_radius=15,
                     on_click=clear_data,
                 ),
                 ft.Container(
                     ft.Text("Made with ❤️ by Roro", size=12, color="#999"),
-                    alignment=ft.alignment.center,
                     padding=30,
+                    alignment=ft.Alignment(0, 0),
                 ),
                 ft.Container(height=70),
             ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
@@ -442,8 +448,8 @@ def main(page: ft.Page):
         add_page = ft.Container(expand=True)
         settings_page = ft.Container(expand=True)
         
-        pages = [home_page, add_page, settings_page]
-        content = ft.Container(pages[0], expand=True)
+        pages_list = [home_page, add_page, settings_page]
+        content = ft.Container(pages_list[0], expand=True)
         
         def refresh_all():
             home_page.content = build_home()
@@ -452,10 +458,9 @@ def main(page: ft.Page):
             page.update()
         
         def nav_change(e):
-            content.content = pages[e.control.selected_index]
+            content.content = pages_list[e.control.selected_index]
             page.update()
         
-        # 使用字符串形式的图标名称
         nav = ft.NavigationBar(
             selected_index=0,
             bgcolor="white",
