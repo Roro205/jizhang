@@ -21,14 +21,13 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install flet
-        # 这一步非常重要：安装 flet 打包工具的依赖
         pip install -r requirements.txt
 
     - name: Build APK
       run: |
-        # 新版命令非常简单，参数都在 pyproject.toml 里
-        # 加上 --verbose 可以看到详细日志以便排错
-        flet build apk --verbose
+        # 核心修改在这里：
+        # 加上 "yes |" 可以自动同意 Flutter SDK 的安装请求
+        yes | flet build apk --verbose
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
