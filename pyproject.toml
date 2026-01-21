@@ -7,3 +7,9 @@ description = "Roro记账"
 product = "Roro记账"
 org = "com.roro.app"
 copyright = "Copyright (c) 2024 Roro"
+icon = "icon.png"
+
+[tool.flet.android]
+icon = "icon.png"
+adaptive_icon_foreground = "icon.png"
+adaptive_icon_background = "#6C5CE7"
