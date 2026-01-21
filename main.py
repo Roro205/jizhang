@@ -9,10 +9,19 @@ def main(page: ft.Page):
     page.title = "Roro记账"
     page.bgcolor = "#F5F5F5"
     page.padding = 0
+    page.spacing = 0
+    
+    # 适配手机全屏
+    page.window.width = 400
+    page.window.height = 800
     
     PRIMARY = "#6C5CE7"
     INCOME = "#00B894"
     EXPENSE = "#E17055"
+    
+    # 获取安全区域（适配刘海屏）
+    safe_area_top = 40  # 顶部安全距离
+    safe_area_bottom = 20  # 底部安全距离
     
     def show_error(e):
         page.controls.clear()
@@ -137,27 +146,35 @@ def main(page: ft.Page):
                 record_items.append(
                     ft.Container(
                         ft.Row([
-                            ft.Text(r.get("icon", "💰"), size=22),
+                            ft.Container(
+                                ft.Text(r.get("icon", "💰"), size=20),
+                                width=40,
+                                height=40,
+                                bgcolor="#F5F5F5",
+                                border_radius=10,
+                                alignment=ft.Alignment(0, 0),
+                            ),
                             ft.Container(width=10),
                             ft.Column([
-                                ft.Text(r.get("category", ""), size=14),
+                                ft.Text(r.get("category", ""), size=14, weight=ft.FontWeight.W_500),
                                 ft.Text(r.get("note", "") or "无备注", size=11, color="#888"),
                             ], spacing=2, expand=True),
                             ft.Text(
                                 f"{'−' if is_exp else '+'} ¥{r.get('amount', 0):.2f}",
                                 color=EXPENSE if is_exp else INCOME,
-                                weight=ft.FontWeight.BOLD
+                                weight=ft.FontWeight.BOLD,
+                                size=15,
                             ),
                             ft.IconButton(
-                                icon="delete",
-                                icon_size=18,
-                                icon_color="#999",
-                                on_click=lambda e, rid=r.get("id"): delete_r(rid)
+                                icon="close",
+                                icon_size=16,
+                                icon_color="#CCC",
+                                on_click=lambda e, rid=r.get("id"): delete_r(rid),
                             ),
                         ]),
                         bgcolor="white",
-                        padding=12,
-                        border_radius=10,
+                        padding=ft.Padding(12, 10, 8, 10),
+                        border_radius=12,
                         margin=ft.Margin(0, 0, 0, 8),
                     )
                 )
@@ -166,61 +183,86 @@ def main(page: ft.Page):
                 record_items = [
                     ft.Container(
                         ft.Column([
-                            ft.Icon("receipt", size=50, color="#DDD"),
-                            ft.Text("今日暂无记录", color="#999"),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                        padding=40,
+                            ft.Text("📝", size=40),
+                            ft.Container(height=10),
+                            ft.Text("今日暂无记录", color="#999", size=14),
+                            ft.Text("点击下方按钮开始记账", color="#CCC", size=12),
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=5),
+                        padding=50,
+                        alignment=ft.Alignment(0, 0),
                     )
                 ]
             
-            return ft.Column([
-                ft.Container(
-                    ft.Column([
-                        ft.Text("Roro记账", size=22, weight=ft.FontWeight.BOLD, color="white"),
-                        ft.Text(datetime.now().strftime("%Y年%m月"), size=12, color="#FFFFFFAA"),
-                        ft.Container(height=15),
-                        ft.Container(
+            return ft.Container(
+                ft.Column([
+                    # 顶部卡片区域
+                    ft.Container(
+                        ft.Column([
+                            # 安全区域占位
+                            ft.Container(height=safe_area_top),
+                            # 标题
                             ft.Row([
                                 ft.Column([
-                                    ft.Text("支出", size=11, color="#666"),
-                                    ft.Text(f"¥{summary['expense']:.2f}", size=18, weight=ft.FontWeight.BOLD),
-                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
-                                ft.Container(width=1, height=35, bgcolor="#EEE"),
-                                ft.Column([
-                                    ft.Text("收入", size=11, color="#666"),
-                                    ft.Text(f"¥{summary['income']:.2f}", size=18, weight=ft.FontWeight.BOLD, color=INCOME),
-                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
-                                ft.Container(width=1, height=35, bgcolor="#EEE"),
-                                ft.Column([
-                                    ft.Text("结余", size=11, color="#666"),
-                                    ft.Text(f"¥{summary['balance']:.2f}", size=18, weight=ft.FontWeight.BOLD,
-                                           color=INCOME if summary['balance'] >= 0 else EXPENSE),
-                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                                    ft.Text("Roro记账", size=24, weight=ft.FontWeight.BOLD, color="white"),
+                                    ft.Text(datetime.now().strftime("%Y年%m月"), size=13, color="#FFFFFFBB"),
+                                ], spacing=2),
                             ]),
-                            bgcolor="white",
-                            padding=15,
-                            border_radius=15,
+                            ft.Container(height=20),
+                            # 汇总卡片
+                            ft.Container(
+                                ft.Row([
+                                    ft.Column([
+                                        ft.Text("支出", size=12, color="#888"),
+                                        ft.Container(height=5),
+                                        ft.Text(f"¥{summary['expense']:.2f}", size=20, weight=ft.FontWeight.BOLD),
+                                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                                    ft.Container(width=1, height=40, bgcolor="#EEE"),
+                                    ft.Column([
+                                        ft.Text("收入", size=12, color="#888"),
+                                        ft.Container(height=5),
+                                        ft.Text(f"¥{summary['income']:.2f}", size=20, weight=ft.FontWeight.BOLD, color=INCOME),
+                                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                                    ft.Container(width=1, height=40, bgcolor="#EEE"),
+                                    ft.Column([
+                                        ft.Text("结余", size=12, color="#888"),
+                                        ft.Container(height=5),
+                                        ft.Text(f"¥{summary['balance']:.2f}", size=20, weight=ft.FontWeight.BOLD,
+                                               color=INCOME if summary['balance'] >= 0 else EXPENSE),
+                                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                                ]),
+                                bgcolor="white",
+                                padding=ft.Padding(15, 20, 15, 20),
+                                border_radius=16,
+                            ),
+                        ]),
+                        gradient=ft.LinearGradient(
+                            colors=[PRIMARY, "#A29BFE"],
+                            begin=ft.Alignment(-1, -1),
+                            end=ft.Alignment(1, 1),
                         ),
-                    ]),
-                    gradient=ft.LinearGradient(
-                        colors=[PRIMARY, "#A29BFE"],
-                        begin=ft.Alignment(-1, -1),
-                        end=ft.Alignment(1, 1),
+                        padding=ft.Padding(20, 0, 20, 25),
+                        border_radius=ft.BorderRadius(0, 0, 30, 30),
                     ),
-                    padding=ft.Padding(20, 45, 20, 25),
-                    border_radius=ft.BorderRadius(0, 0, 25, 25),
-                ),
-                ft.Container(
-                    ft.Text("今日记录", size=15, weight=ft.FontWeight.BOLD),
-                    padding=ft.Padding(20, 15, 20, 10),
-                ),
-                ft.Container(
-                    ft.Column(record_items, spacing=0),
-                    padding=ft.Padding(15, 0, 15, 0),
-                    expand=True,
-                ),
-                ft.Container(height=70),
-            ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
+                    # 今日记录标题
+                    ft.Container(
+                        ft.Row([
+                            ft.Text("今日记录", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text(datetime.now().strftime("%m/%d"), size=13, color="#999"),
+                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                        padding=ft.Padding(20, 20, 20, 10),
+                    ),
+                    # 记录列表
+                    ft.Container(
+                        ft.Column(record_items, spacing=0),
+                        padding=ft.Padding(15, 0, 15, 0),
+                        expand=True,
+                    ),
+                    # 底部占位（导航栏高度 + 安全区域）
+                    ft.Container(height=70 + safe_area_bottom),
+                ], spacing=0),
+                expand=True,
+                bgcolor="#F5F5F5",
+            )
         
         # ========== 记账页 ==========
         def build_add():
@@ -229,18 +271,31 @@ def main(page: ft.Page):
             amount_field = ft.TextField(
                 hint_text="0.00",
                 text_align=ft.TextAlign.CENTER,
-                text_size=32,
+                text_size=36,
                 keyboard_type=ft.KeyboardType.NUMBER,
                 border=ft.InputBorder.NONE,
                 color="white",
+                hint_style=ft.TextStyle(color="#FFFFFF66", size=36),
             )
-            note_field = ft.TextField(hint_text="备注", border_radius=10)
-            date_text = ft.Text(current_date, color="white")
+            note_field = ft.TextField(
+                hint_text="添加备注...",
+                border_radius=12,
+                bgcolor="white",
+                border_color="#EEE",
+            )
+            date_text = ft.Text(current_date, color="white", size=14)
             
-            exp_text = ft.Text("支出", size=15, weight=ft.FontWeight.BOLD, color="white")
-            inc_text = ft.Text("收入", size=15, color="#FFFFFFAA")
+            exp_text = ft.Text("支出", size=16, weight=ft.FontWeight.BOLD, color="white")
+            inc_text = ft.Text("收入", size=16, color="#FFFFFF88")
             
-            cat_grid = ft.GridView(runs_count=5, spacing=10, run_spacing=10, child_aspect_ratio=0.9, expand=True)
+            cat_grid = ft.GridView(
+                runs_count=4,
+                spacing=15,
+                run_spacing=15,
+                child_aspect_ratio=0.85,
+                expand=True,
+                padding=10,
+            )
             
             def switch_type(t):
                 nonlocal current_type, current_cat, current_icon
@@ -250,18 +305,17 @@ def main(page: ft.Page):
                 if t == "支出":
                     exp_text.color = "white"
                     exp_text.weight = ft.FontWeight.BOLD
-                    inc_text.color = "#FFFFFFAA"
+                    inc_text.color = "#FFFFFF88"
                     inc_text.weight = None
                 else:
                     inc_text.color = "white"
                     inc_text.weight = ft.FontWeight.BOLD
-                    exp_text.color = "#FFFFFFAA"
+                    exp_text.color = "#FFFFFF88"
                     exp_text.weight = None
                 load_categories()
                 page.update()
             
             def load_categories():
-                nonlocal current_cat
                 cats = dm.data["categories"].get(current_type, [])
                 cat_grid.controls.clear()
                 for c in cats:
@@ -272,14 +326,21 @@ def main(page: ft.Page):
                         ft.Container(
                             ft.Column([
                                 ft.Container(
-                                    ft.Text(c.get("icon", "💰"), size=26),
-                                    width=48,
-                                    height=48,
-                                    bgcolor=c.get("color", "#999") if selected else c.get("color", "#999") + "30",
-                                    border_radius=12,
+                                    ft.Text(c.get("icon", "💰"), size=28),
+                                    width=55,
+                                    height=55,
+                                    bgcolor=c.get("color", "#999") if selected else c.get("color", "#999") + "25",
+                                    border_radius=15,
+                                    alignment=ft.Alignment(0, 0),
                                 ),
-                                ft.Text(c.get("name", ""), size=11, color="#333" if selected else "#888"),
-                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4),
+                                ft.Container(height=5),
+                                ft.Text(
+                                    c.get("name", ""),
+                                    size=12,
+                                    color="#333" if selected else "#888",
+                                    weight=ft.FontWeight.W_500 if selected else None,
+                                ),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
                             on_click=lambda e, cat=c: select_cat(cat),
                         )
                     )
@@ -294,19 +355,19 @@ def main(page: ft.Page):
             def save_record(e):
                 nonlocal current_cat, current_icon
                 if not amount_field.value:
-                    page.snack_bar = ft.SnackBar(ft.Text("请输入金额"), bgcolor=EXPENSE)
+                    page.snack_bar = ft.SnackBar(ft.Text("请输入金额", color="white"), bgcolor=EXPENSE)
                     page.snack_bar.open = True
                     page.update()
                     return
                 if not current_cat:
-                    page.snack_bar = ft.SnackBar(ft.Text("请选择分类"), bgcolor=EXPENSE)
+                    page.snack_bar = ft.SnackBar(ft.Text("请选择分类", color="white"), bgcolor=EXPENSE)
                     page.snack_bar.open = True
                     page.update()
                     return
                 try:
                     amt = float(amount_field.value)
                 except:
-                    page.snack_bar = ft.SnackBar(ft.Text("金额无效"), bgcolor=EXPENSE)
+                    page.snack_bar = ft.SnackBar(ft.Text("金额无效", color="white"), bgcolor=EXPENSE)
                     page.snack_bar.open = True
                     page.update()
                     return
@@ -319,64 +380,111 @@ def main(page: ft.Page):
                 current_icon = None
                 load_categories()
                 
-                page.snack_bar = ft.SnackBar(ft.Text("✓ 保存成功"), bgcolor=INCOME)
+                page.snack_bar = ft.SnackBar(ft.Text("✓ 保存成功", color="white"), bgcolor=INCOME)
                 page.snack_bar.open = True
                 refresh_all()
             
+            # 快捷金额按钮
+            quick_amounts = [10, 20, 50, 100, 200]
+            
+            def add_quick(amt):
+                try:
+                    current = float(amount_field.value or 0)
+                    amount_field.value = str(current + amt)
+                except:
+                    amount_field.value = str(amt)
+                page.update()
+            
+            quick_btns = ft.Row(
+                [
+                    ft.Container(
+                        ft.Text(f"+{a}", size=13, color="white"),
+                        bgcolor="#FFFFFF30",
+                        padding=ft.Padding(12, 6, 12, 6),
+                        border_radius=15,
+                        on_click=lambda e, amt=a: add_quick(amt),
+                    ) for a in quick_amounts
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=8,
+            )
+            
             load_categories()
             
-            return ft.Column([
-                ft.Container(
-                    ft.Column([
-                        ft.Row([
-                            ft.Container(exp_text, on_click=lambda e: switch_type("支出"), padding=10),
-                            ft.Container(inc_text, on_click=lambda e: switch_type("收入"), padding=10),
-                        ], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
-                        ft.Container(height=10),
-                        ft.Row([
-                            ft.Text("¥", size=28, color="#FFFFFFAA"),
-                            ft.Container(amount_field, expand=True),
-                        ], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.Container(height=10),
-                        ft.Row([
-                            ft.Icon("calendar_today", size=16, color="#FFFFFFAA"),
-                            ft.Container(width=5),
-                            date_text,
-                        ], alignment=ft.MainAxisAlignment.CENTER),
-                    ]),
-                    gradient=ft.LinearGradient(
-                        colors=[PRIMARY, "#A29BFE"],
-                        begin=ft.Alignment(-1, -1),
-                        end=ft.Alignment(1, 1),
-                    ),
-                    padding=ft.Padding(20, 40, 20, 20),
-                    border_radius=ft.BorderRadius(0, 0, 25, 25),
-                ),
-                ft.Container(
-                    ft.Column([
-                        ft.Text("选择分类", size=14, weight=ft.FontWeight.BOLD),
-                        ft.Container(height=10),
-                        cat_grid,
-                    ]),
-                    padding=20,
-                    expand=True,
-                ),
-                ft.Container(
-                    ft.Column([
-                        note_field,
-                        ft.Container(height=10),
-                        ft.ElevatedButton(
-                            "保存",
-                            width=float("inf"),
-                            height=45,
-                            bgcolor=PRIMARY,
-                            color="white",
-                            on_click=save_record,
+            return ft.Container(
+                ft.Column([
+                    # 顶部输入区域
+                    ft.Container(
+                        ft.Column([
+                            ft.Container(height=safe_area_top),
+                            # 类型切换
+                            ft.Row([
+                                ft.Container(exp_text, on_click=lambda e: switch_type("支出"), padding=10),
+                                ft.Container(inc_text, on_click=lambda e: switch_type("收入"), padding=10),
+                            ], alignment=ft.MainAxisAlignment.CENTER, spacing=30),
+                            ft.Container(height=20),
+                            # 金额输入
+                            ft.Row([
+                                ft.Text("¥", size=30, color="#FFFFFF88"),
+                                ft.Container(amount_field, expand=True),
+                            ], alignment=ft.MainAxisAlignment.CENTER),
+                            ft.Container(height=15),
+                            # 快捷金额
+                            quick_btns,
+                            ft.Container(height=15),
+                            # 日期显示
+                            ft.Container(
+                                ft.Row([
+                                    ft.Icon("event", size=18, color="#FFFFFF88"),
+                                    ft.Container(width=8),
+                                    date_text,
+                                ], alignment=ft.MainAxisAlignment.CENTER),
+                                bgcolor="#FFFFFF20",
+                                padding=ft.Padding(20, 10, 20, 10),
+                                border_radius=12,
+                            ),
+                        ]),
+                        gradient=ft.LinearGradient(
+                            colors=[PRIMARY, "#A29BFE"],
+                            begin=ft.Alignment(0, -1),
+                            end=ft.Alignment(0, 1),
                         ),
-                    ]),
-                    padding=ft.Padding(20, 0, 20, 90),
-                ),
-            ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
+                        padding=ft.Padding(20, 0, 20, 25),
+                        border_radius=ft.BorderRadius(0, 0, 30, 30),
+                    ),
+                    # 分类选择
+                    ft.Container(
+                        ft.Column([
+                            ft.Text("选择分类", size=15, weight=ft.FontWeight.BOLD),
+                            ft.Container(height=10),
+                            cat_grid,
+                        ]),
+                        padding=ft.Padding(15, 20, 15, 0),
+                        expand=True,
+                    ),
+                    # 备注和保存
+                    ft.Container(
+                        ft.Column([
+                            note_field,
+                            ft.Container(height=15),
+                            ft.ElevatedButton(
+                                "保存",
+                                width=float("inf"),
+                                height=50,
+                                bgcolor=PRIMARY,
+                                color="white",
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=12),
+                                ),
+                                on_click=save_record,
+                            ),
+                        ]),
+                        padding=ft.Padding(20, 10, 20, 80 + safe_area_bottom),
+                    ),
+                ], spacing=0),
+                expand=True,
+                bgcolor="#F5F5F5",
+            )
         
         # ========== 设置页 ==========
         def build_settings():
@@ -387,61 +495,96 @@ def main(page: ft.Page):
             def clear_data(e):
                 dm.data["records"] = []
                 dm.save_data()
-                page.snack_bar = ft.SnackBar(ft.Text("数据已清空"), bgcolor="#F39C12")
+                page.snack_bar = ft.SnackBar(ft.Text("数据已清空", color="white"), bgcolor="#F39C12")
                 page.snack_bar.open = True
                 refresh_all()
             
-            return ft.Column([
-                ft.Container(
-                    ft.Text("设置", size=20, weight=ft.FontWeight.BOLD, color="white"),
-                    gradient=ft.LinearGradient(
-                        colors=[PRIMARY, "#A29BFE"],
-                        begin=ft.Alignment(-1, -1),
-                        end=ft.Alignment(1, 1),
+            return ft.Container(
+                ft.Column([
+                    # 顶部
+                    ft.Container(
+                        ft.Column([
+                            ft.Container(height=safe_area_top),
+                            ft.Text("设置", size=22, weight=ft.FontWeight.BOLD, color="white"),
+                        ]),
+                        gradient=ft.LinearGradient(
+                            colors=[PRIMARY, "#A29BFE"],
+                            begin=ft.Alignment(-1, -1),
+                            end=ft.Alignment(1, 1),
+                        ),
+                        padding=ft.Padding(20, 0, 20, 25),
+                        border_radius=ft.BorderRadius(0, 0, 30, 30),
+                        alignment=ft.Alignment(0, 0),
                     ),
-                    padding=ft.Padding(0, 45, 0, 20),
-                    border_radius=ft.BorderRadius(0, 0, 25, 25),
-                    alignment=ft.Alignment(0, 0),
-                ),
-                ft.Container(
-                    ft.Row([
+                    # 统计卡片
+                    ft.Container(
+                        ft.Row([
+                            ft.Column([
+                                ft.Text(f"{total}", size=26, weight=ft.FontWeight.BOLD, color=PRIMARY),
+                                ft.Text("总记录", size=12, color="#888"),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                            ft.Container(width=1, height=50, bgcolor="#EEE"),
+                            ft.Column([
+                                ft.Text(f"¥{exp:.0f}", size=26, weight=ft.FontWeight.BOLD, color=EXPENSE),
+                                ft.Text("总支出", size=12, color="#888"),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                            ft.Container(width=1, height=50, bgcolor="#EEE"),
+                            ft.Column([
+                                ft.Text(f"¥{inc:.0f}", size=26, weight=ft.FontWeight.BOLD, color=INCOME),
+                                ft.Text("总收入", size=12, color="#888"),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                        ]),
+                        bgcolor="white",
+                        margin=ft.Margin(15, 20, 15, 0),
+                        padding=ft.Padding(15, 25, 15, 25),
+                        border_radius=16,
+                    ),
+                    # 设置项
+                    ft.Container(
                         ft.Column([
-                            ft.Text(f"{total}", size=22, weight=ft.FontWeight.BOLD, color=PRIMARY),
-                            ft.Text("总记录", size=11, color="#888"),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
+                            ft.Container(
+                                ft.Row([
+                                    ft.Container(
+                                        ft.Icon("delete_outline", color=EXPENSE, size=22),
+                                        width=45,
+                                        height=45,
+                                        bgcolor=EXPENSE + "15",
+                                        border_radius=12,
+                                        alignment=ft.Alignment(0, 0),
+                                    ),
+                                    ft.Container(width=15),
+                                    ft.Column([
+                                        ft.Text("清空数据", size=15, weight=ft.FontWeight.W_500),
+                                        ft.Text("删除所有记账记录", size=12, color="#999"),
+                                    ], spacing=2, expand=True),
+                                    ft.Icon("chevron_right", color="#CCC"),
+                                ]),
+                                bgcolor="white",
+                                padding=ft.Padding(15, 12, 10, 12),
+                                border_radius=14,
+                                on_click=clear_data,
+                            ),
+                        ]),
+                        padding=ft.Padding(15, 20, 15, 0),
+                    ),
+                    # 关于
+                    ft.Container(
                         ft.Column([
-                            ft.Text(f"¥{exp:.0f}", size=22, weight=ft.FontWeight.BOLD, color=EXPENSE),
-                            ft.Text("总支出", size=11, color="#888"),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
-                        ft.Column([
-                            ft.Text(f"¥{inc:.0f}", size=22, weight=ft.FontWeight.BOLD, color=INCOME),
-                            ft.Text("总收入", size=11, color="#888"),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
-                    ]),
-                    bgcolor="white",
-                    margin=15,
-                    padding=20,
-                    border_radius=15,
-                ),
-                ft.Container(
-                    ft.Row([
-                        ft.Icon("delete_outline", color=EXPENSE),
-                        ft.Container(width=10),
-                        ft.Text("清空所有数据"),
-                    ]),
-                    bgcolor="white",
-                    margin=ft.Margin(15, 0, 15, 0),
-                    padding=15,
-                    border_radius=15,
-                    on_click=clear_data,
-                ),
-                ft.Container(
-                    ft.Text("Made with ❤️ by Roro", size=12, color="#999"),
-                    padding=30,
-                    alignment=ft.Alignment(0, 0),
-                ),
-                ft.Container(height=70),
-            ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
+                            ft.Text("🐰", size=50),
+                            ft.Container(height=10),
+                            ft.Text("Roro记账", size=18, weight=ft.FontWeight.BOLD),
+                            ft.Text("v2.0.0", size=12, color="#999"),
+                            ft.Container(height=20),
+                            ft.Text("Made with ❤️", size=13, color="#999"),
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        padding=ft.Padding(0, 40, 0, 0),
+                        alignment=ft.Alignment(0, 0),
+                    ),
+                    ft.Container(height=80 + safe_area_bottom),
+                ], spacing=0),
+                expand=True,
+                bgcolor="#F5F5F5",
+            )
         
         # ========== 导航 ==========
         home_page = ft.Container(expand=True)
@@ -465,7 +608,10 @@ def main(page: ft.Page):
             selected_index=0,
             bgcolor="white",
             on_change=nav_change,
-            height=60,
+            height=65,
+            elevation=10,
+            shadow_color="#00000020",
+            indicator_color=PRIMARY + "20",
             destinations=[
                 ft.NavigationBarDestination(icon="home_outlined", selected_icon="home", label="首页"),
                 ft.NavigationBarDestination(icon="add_circle_outline", selected_icon="add_circle", label="记账"),
@@ -477,8 +623,13 @@ def main(page: ft.Page):
         
         page.add(
             ft.Stack([
-                ft.Column([content], expand=True),
-                ft.Container(nav, bottom=0, left=0, right=0),
+                content,
+                ft.Container(
+                    nav,
+                    bottom=0,
+                    left=0,
+                    right=0,
+                ),
             ], expand=True)
         )
     
