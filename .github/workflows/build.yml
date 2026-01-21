@@ -21,7 +21,7 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'
+        flutter-version: '3.27.4'
         channel: 'stable'
 
     - name: Setup Python
@@ -36,7 +36,9 @@ jobs:
 
     - name: Build APK
       run: |
-        flet build apk --verbose
+        # 自动回答 yes 并设置环境变量跳过交互
+        export FLET_BUILD_FLUTTER_AUTO_INSTALL=yes
+        yes | flet build apk --verbose || flet build apk --verbose
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
