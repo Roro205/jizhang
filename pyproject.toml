@@ -1,0 +1,9 @@
+[project]
+name = "roro_accounting"
+version = "2.0.0"
+description = "Roro记账"
+
+[tool.flet]
+product = "Roro记账"
+org = "com.roro.app"
+copyright = "Copyright (c) 2024 Roro"
