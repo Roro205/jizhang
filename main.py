@@ -10,18 +10,16 @@ def main(page: ft.Page):
     page.bgcolor = "#F5F5F5"
     page.padding = 0
     
-    # 颜色
     PRIMARY = "#6C5CE7"
     INCOME = "#00B894"
     EXPENSE = "#E17055"
     
-    # 错误显示
     def show_error(e):
         page.controls.clear()
         page.add(
             ft.Container(
                 ft.Column([
-                    ft.Text("❌ 出错了", size=24, color="white"),
+                    ft.Text("出错了", size=24, color="white"),
                     ft.Container(height=20),
                     ft.Text(str(e), size=12, color="white"),
                 ], scroll=ft.ScrollMode.AUTO),
@@ -33,7 +31,6 @@ def main(page: ft.Page):
         page.update()
     
     try:
-        # ==================== 数据管理 ====================
         class DataManager:
             def __init__(self):
                 self.data_file = "roro_data.json"
@@ -55,21 +52,14 @@ def main(page: ft.Page):
                     if os.path.exists(path):
                         with open(path, 'r', encoding='utf-8') as f:
                             data = json.load(f)
-                            # 确保必要字段存在
                             if "records" not in data:
                                 data["records"] = []
                             if "categories" not in data:
                                 data["categories"] = self.default_categories()
-                            if "settings" not in data:
-                                data["settings"] = {"monthly_budget": 0}
                             return data
                 except:
                     pass
-                return {
-                    "records": [],
-                    "categories": self.default_categories(),
-                    "settings": {"monthly_budget": 0}
-                }
+                return {"records": [], "categories": self.default_categories()}
             
             def default_categories(self):
                 return {
@@ -127,13 +117,12 @@ def main(page: ft.Page):
         
         dm = DataManager()
         
-        # 状态
         current_type = "支出"
         current_cat = None
         current_icon = None
         current_date = datetime.now().strftime("%Y-%m-%d")
         
-        # ==================== 首页 ====================
+        # ========== 首页 ==========
         def build_home():
             summary = dm.get_month_summary()
             records = dm.get_today_records()
@@ -160,7 +149,7 @@ def main(page: ft.Page):
                                 weight=ft.FontWeight.BOLD
                             ),
                             ft.IconButton(
-                                ft.icons.DELETE,
+                                "delete",
                                 icon_size=18,
                                 icon_color="#999",
                                 on_click=lambda e, rid=r.get("id"): delete_r(rid)
@@ -177,7 +166,7 @@ def main(page: ft.Page):
                 record_items = [
                     ft.Container(
                         ft.Column([
-                            ft.Icon(ft.icons.RECEIPT, size=50, color="#DDD"),
+                            ft.Icon("receipt", size=50, color="#DDD"),
                             ft.Text("今日暂无记录", color="#999"),
                         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                         padding=40,
@@ -186,13 +175,11 @@ def main(page: ft.Page):
                 ]
             
             return ft.Column([
-                # 头部
                 ft.Container(
                     ft.Column([
                         ft.Text("Roro记账", size=22, weight=ft.FontWeight.BOLD, color="white"),
                         ft.Text(datetime.now().strftime("%Y年%m月"), size=12, color="#FFFFFFAA"),
                         ft.Container(height=15),
-                        # 汇总卡片
                         ft.Container(
                             ft.Row([
                                 ft.Column([
@@ -224,7 +211,6 @@ def main(page: ft.Page):
                     padding=ft.padding.only(left=20, right=20, top=45, bottom=25),
                     border_radius=ft.border_radius.only(bottom_left=25, bottom_right=25),
                 ),
-                # 今日记录
                 ft.Container(
                     ft.Text("今日记录", size=15, weight=ft.FontWeight.BOLD),
                     padding=ft.padding.only(left=20, top=15, bottom=10),
@@ -237,7 +223,7 @@ def main(page: ft.Page):
                 ft.Container(height=70),
             ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
         
-        # ==================== 记账页 ====================
+        # ========== 记账页 ==========
         def build_add():
             nonlocal current_type, current_cat, current_icon, current_date
             
@@ -355,7 +341,7 @@ def main(page: ft.Page):
                         ], alignment=ft.MainAxisAlignment.CENTER),
                         ft.Container(height=10),
                         ft.Row([
-                            ft.Icon(ft.icons.CALENDAR_TODAY, size=16, color="#FFFFFFAA"),
+                            ft.Icon("calendar_today", size=16, color="#FFFFFFAA"),
                             ft.Container(width=5),
                             date_text,
                         ], alignment=ft.MainAxisAlignment.CENTER),
@@ -390,7 +376,7 @@ def main(page: ft.Page):
                 ),
             ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
         
-        # ==================== 设置页 ====================
+        # ========== 设置页 ==========
         def build_settings():
             total = len(dm.data.get("records", []))
             exp = sum(r.get("amount", 0) for r in dm.data.get("records", []) if r.get("type") == "支出")
@@ -433,7 +419,7 @@ def main(page: ft.Page):
                 ),
                 ft.Container(
                     ft.Row([
-                        ft.Icon(ft.icons.DELETE_OUTLINE, color=EXPENSE),
+                        ft.Icon("delete_outline", color=EXPENSE),
                         ft.Container(width=10),
                         ft.Text("清空所有数据"),
                     ]),
@@ -451,7 +437,7 @@ def main(page: ft.Page):
                 ft.Container(height=70),
             ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
         
-        # ==================== 导航 ====================
+        # ========== 导航 ==========
         home_page = ft.Container(expand=True)
         add_page = ft.Container(expand=True)
         settings_page = ft.Container(expand=True)
@@ -469,15 +455,16 @@ def main(page: ft.Page):
             content.content = pages[e.control.selected_index]
             page.update()
         
+        # 使用字符串形式的图标名称
         nav = ft.NavigationBar(
             selected_index=0,
             bgcolor="white",
             on_change=nav_change,
             height=60,
             destinations=[
-                ft.NavigationBarDestination(icon=ft.icons.HOME_OUTLINED, selected_icon=ft.icons.HOME, label="首页"),
-                ft.NavigationBarDestination(icon=ft.icons.ADD_CIRCLE_OUTLINE, selected_icon=ft.icons.ADD_CIRCLE, label="记账"),
-                ft.NavigationBarDestination(icon=ft.icons.SETTINGS_OUTLINED, selected_icon=ft.icons.SETTINGS, label="设置"),
+                ft.NavigationBarDestination(icon="home_outlined", selected_icon="home", label="首页"),
+                ft.NavigationBarDestination(icon="add_circle_outline", selected_icon="add_circle", label="记账"),
+                ft.NavigationBarDestination(icon="settings_outlined", selected_icon="settings", label="设置"),
             ],
         )
         
