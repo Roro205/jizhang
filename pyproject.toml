@@ -4,5 +4,14 @@ version = "2.0.0"
 description = "Roro记账"
 
 [tool.flet]
-product = "Roro记账"
-org = "com.roro.app"
+app.product = "Roro记账"
+app.org = "com.roro.app"
+
+# 通用图标
+app.icon = "icon.png"
+
+# Android 专用配置
+[tool.flet.android]
+icon = "icon.png"
+adaptive_icon_foreground = "icon.png"
+adaptive_icon_background_color = "#6C5CE7"
