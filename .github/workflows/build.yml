@@ -20,13 +20,10 @@ jobs:
     - name: Install Dependencies
       run: |
         pip install --upgrade pip
-        pip install flet
-        pip install -r requirements.txt
+        pip install flet==0.24.1
 
     - name: Build APK
       run: |
-        # 核心修改在这里：
-        # 加上 "yes |" 可以自动同意 Flutter SDK 的安装请求
         yes | flet build apk --verbose
 
     - name: Upload APK
