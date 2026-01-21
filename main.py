@@ -4,6 +4,7 @@ import json
 import os
 from typing import Dict, List
 import calendar
+import traceback
 
 
 # ==================== 数据管理 ====================
@@ -11,15 +12,24 @@ class DataManager:
     def __init__(self):
         self.data_file = "roro_data.json"
         self.data = self.load_data()
-        self.migrate_data()  # 启动时修复数据
-
+        self.migrate_data()
+    
     def get_data_path(self):
-        if os.environ.get('FLET_APP_STORAGE_DATA'):
-            return os.path.join(os.environ['FLET_APP_STORAGE_DATA'], self.data_file)
+        """获取数据文件路径（兼容安卓）"""
+        try:
+            # 安卓环境使用专用存储路径
+            storage = os.environ.get('FLET_APP_STORAGE_DATA')
+            if storage:
+                os.makedirs(storage, exist_ok=True)
+                return os.path.join(storage, self.data_file)
+        except Exception as e:
+            print(f"路径错误: {e}")
+        
+        # 电脑环境使用当前目录
         return self.data_file
-
+    
     def get_default_data(self) -> Dict:
-        """定义默认的新版数据结构"""
+        """默认数据结构"""
         return {
             "records": [],
             "categories": {
@@ -54,6 +64,7 @@ class DataManager:
         }
 
     def load_data(self) -> Dict:
+        """加载数据"""
         try:
             path = self.get_data_path()
             if os.path.exists(path):
@@ -61,40 +72,36 @@ class DataManager:
                     return json.load(f)
         except Exception as e:
             print(f"加载数据错误: {e}")
-
+        
         return self.get_default_data()
 
     def migrate_data(self):
-        """强制修复旧数据结构"""
+        """修复旧数据结构"""
         changed = False
         default_data = self.get_default_data()
-
-        # 1. 修复缺失字段
+        
         if "budgets" not in self.data:
             self.data["budgets"] = {}
             changed = True
-
+        
         if "settings" not in self.data:
             self.data["settings"] = default_data["settings"]
             changed = True
-
-        # 2. 核心修复：检查分类是否为旧版字符串列表
+            
         try:
-            expense_cats = self.data["categories"].get("支出", [])
+            expense_cats = self.data.get("categories", {}).get("支出", [])
             if expense_cats and isinstance(expense_cats[0], str):
-                print("检测到旧版分类数据，正在迁移...")
                 self.data["categories"] = default_data["categories"]
                 changed = True
-        except Exception as e:
-            print(f"数据迁移检查出错: {e}")
+        except:
             self.data["categories"] = default_data["categories"]
             changed = True
 
         if changed:
             self.save_data()
-            print("数据结构已修复并保存")
-
+    
     def save_data(self):
+        """保存数据"""
         try:
             path = self.get_data_path()
             dir_path = os.path.dirname(path)
@@ -104,8 +111,8 @@ class DataManager:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"保存数据错误: {e}")
-
-    def add_record(self, record_type: str, amount: float, category: str,
+    
+    def add_record(self, record_type: str, amount: float, category: str, 
                    icon: str, note: str, date: str):
         record = {
             "id": datetime.now().timestamp(),
@@ -120,18 +127,18 @@ class DataManager:
         self.data["records"].append(record)
         self.save_data()
         return record
-
+    
     def delete_record(self, record_id: float):
         self.data["records"] = [r for r in self.data["records"] if r["id"] != record_id]
         self.save_data()
-
+    
     def get_records_by_date(self, date: str) -> List[Dict]:
         return sorted(
             [r for r in self.data["records"] if r["date"] == date],
-            key=lambda x: x["created_at"],
+            key=lambda x: x.get("created_at", ""),
             reverse=True
         )
-
+    
     def get_records_by_month(self, year: int, month: int) -> List[Dict]:
         prefix = f"{year}-{month:02d}"
         return sorted(
@@ -139,49 +146,48 @@ class DataManager:
             key=lambda x: x["date"],
             reverse=True
         )
-
+    
     def get_monthly_summary(self, year: int, month: int) -> Dict:
         records = self.get_records_by_month(year, month)
         income = sum(r["amount"] for r in records if r["type"] == "收入")
         expense = sum(r["amount"] for r in records if r["type"] == "支出")
         return {
-            "income": income,
-            "expense": expense,
+            "income": income, 
+            "expense": expense, 
             "balance": income - expense,
             "count": len(records)
         }
-
+    
     def get_category_stats(self, year: int, month: int, record_type: str) -> List[Dict]:
         records = self.get_records_by_month(year, month)
         stats = {}
         for r in records:
             if r["type"] == record_type:
-                # 兼容旧数据
                 cat = r["category"]
-                if " " in cat and not r.get("icon"):
+                if " " in cat and not r.get("icon"): 
                     parts = cat.split(" ", 1)
                     if len(parts) == 2:
                         cat = parts[1]
-
+                
                 if cat not in stats:
                     stats[cat] = {"amount": 0, "count": 0, "icon": r.get("icon", "💰")}
                 stats[cat]["amount"] += r["amount"]
                 stats[cat]["count"] += 1
-
+        
         result = [{"category": k, **v} for k, v in stats.items()]
         return sorted(result, key=lambda x: x["amount"], reverse=True)
-
+    
     def get_weekly_comparison(self) -> Dict:
         today = datetime.now()
         week_start = today - timedelta(days=today.weekday())
-
+        
         this_week_expense = 0
         this_week_income = 0
         last_week_start = week_start - timedelta(days=7)
         last_week_end = week_start - timedelta(days=1)
         last_week_expense = 0
         last_week_income = 0
-
+        
         for r in self.data["records"]:
             try:
                 r_date = datetime.strptime(r["date"], "%Y-%m-%d")
@@ -197,37 +203,38 @@ class DataManager:
                         last_week_income += r["amount"]
             except:
                 pass
-
+        
         return {
             "this_week": {"expense": this_week_expense, "income": this_week_income},
             "last_week": {"expense": last_week_expense, "income": last_week_income}
         }
-
+    
     def set_monthly_budget(self, year: int, month: int, amount: float):
         key = f"{year}-{month:02d}"
         self.data["budgets"][key] = amount
         self.save_data()
-
+    
     def get_monthly_budget(self, year: int, month: int) -> float:
         key = f"{year}-{month:02d}"
-        return self.data["budgets"].get(key, self.data["settings"].get("monthly_budget", 0))
-
+        return self.data.get("budgets", {}).get(key, self.data.get("settings", {}).get("monthly_budget", 0))
+    
     def search_records(self, keyword: str) -> List[Dict]:
         keyword = keyword.lower()
         return [
             r for r in self.data["records"]
-            if keyword in r.get("category", "").lower()
-               or keyword in r.get("note", "").lower()
+            if keyword in r.get("category", "").lower() 
+            or keyword in r.get("note", "").lower()
         ]
 
 
 # ==================== 主应用 ====================
 def main(page: ft.Page):
+    # 基础配置
     page.title = "Roro记账"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 0
     page.bgcolor = "#F8F9FA"
-
+    
     # 主题色
     PRIMARY_COLOR = "#6C5CE7"
     PRIMARY_LIGHT = "#A29BFE"
@@ -236,9 +243,10 @@ def main(page: ft.Page):
     CARD_COLOR = "#FFFFFF"
     TEXT_PRIMARY = "#2D3436"
     TEXT_SECONDARY = "#636E72"
-
+    
+    # 初始化数据管理器
     dm = DataManager()
-
+    
     # 状态变量
     state = {
         "selected_type": "支出",
@@ -249,17 +257,18 @@ def main(page: ft.Page):
         "stats_month": datetime.now().month,
         "quick_amounts": [10, 20, 50, 100, 200, 500],
     }
-
+    
     # ==================== 通用组件 ====================
     def show_snackbar(message: str, color: str = None):
-        snack_bar = ft.SnackBar(
+        snack = ft.SnackBar(
             content=ft.Text(message, color="white", size=14),
             bgcolor=color or TEXT_PRIMARY,
             duration=2000,
-            behavior=ft.SnackBarBehavior.FLOATING,
         )
-        page.open(snack_bar)
-
+        page.overlay.append(snack)
+        snack.open = True
+        page.update()
+    
     def create_card(content, padding_val=16, margin_val=None):
         if margin_val is None:
             margin_val = ft.margin.only(left=16, right=16, bottom=12)
@@ -276,46 +285,54 @@ def main(page: ft.Page):
                 offset=ft.Offset(0, 2),
             ),
         )
-
+    
+    def show_dialog(dlg):
+        page.overlay.append(dlg)
+        dlg.open = True
+        page.update()
+    
+    def close_dialog(dlg):
+        dlg.open = False
+        page.update()
+    
     # ==================== 首页 ====================
     def build_home_page():
         today = datetime.now()
         today_str = today.strftime("%Y-%m-%d")
-
+        
         monthly_summary = dm.get_monthly_summary(today.year, today.month)
         today_records = dm.get_records_by_date(today_str)
         budget = dm.get_monthly_budget(today.year, today.month)
         weekly = dm.get_weekly_comparison()
-
+        
         budget_percent = (monthly_summary["expense"] / budget * 100) if budget > 0 else 0
         budget_color = INCOME_COLOR if budget_percent < 80 else ("#F39C12" if budget_percent < 100 else EXPENSE_COLOR)
-
+        
         def delete_record(record_id):
             def do_delete(e):
                 dm.delete_record(record_id)
-                page.close(dlg)
+                close_dialog(dlg)
                 refresh_all()
-
+            
             def cancel(e):
-                page.close(dlg)
-
+                close_dialog(dlg)
+            
             dlg = ft.AlertDialog(
                 modal=True,
                 title=ft.Text("删除记录", size=18, weight=ft.FontWeight.BOLD),
                 content=ft.Text("确定要删除这条记录吗？", size=14, color=TEXT_SECONDARY),
                 actions=[
                     ft.TextButton("取消", on_click=cancel),
-                    ft.TextButton("删除", on_click=do_delete,
-                                  style=ft.ButtonStyle(color=EXPENSE_COLOR)),
+                    ft.TextButton("删除", on_click=do_delete, 
+                                 style=ft.ButtonStyle(color=EXPENSE_COLOR)),
                 ],
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            page.open(dlg)
-
+            show_dialog(dlg)
+        
         def create_record_item(record):
             is_expense = record["type"] == "支出"
-
-            # 兼容旧数据处理
+            
             cat_name = record["category"]
             icon = record.get("icon", "💰")
             if "icon" not in record and " " in cat_name:
@@ -323,7 +340,7 @@ def main(page: ft.Page):
                 if len(parts) == 2:
                     icon = parts[0]
                     cat_name = parts[1]
-
+            
             return ft.Container(
                 content=ft.Row([
                     ft.Container(
@@ -335,10 +352,10 @@ def main(page: ft.Page):
                     ),
                     ft.Container(width=12),
                     ft.Column([
-                        ft.Text(cat_name, size=15, weight=ft.FontWeight.W_500,
-                                color=TEXT_PRIMARY),
-                        ft.Text(record["note"] if record["note"] else "无备注",
-                                size=12, color=TEXT_SECONDARY),
+                        ft.Text(cat_name, size=15, weight=ft.FontWeight.W_500, 
+                               color=TEXT_PRIMARY),
+                        ft.Text(record["note"] if record.get("note") else "无备注", 
+                               size=12, color=TEXT_SECONDARY),
                     ], spacing=4, expand=True),
                     ft.Text(
                         f"{'-' if is_expense else '+'} ¥{record['amount']:.2f}",
@@ -354,27 +371,22 @@ def main(page: ft.Page):
                 ]),
                 padding=ft.padding.symmetric(vertical=8),
             )
-
+        
         expense_diff = weekly["this_week"]["expense"] - weekly["last_week"]["expense"]
-        expense_diff_percent = (expense_diff / weekly["last_week"]["expense"] * 100) if weekly["last_week"][
-                                                                                            "expense"] > 0 else 0
-
+        expense_diff_percent = (expense_diff / weekly["last_week"]["expense"] * 100) if weekly["last_week"]["expense"] > 0 else 0
+        
         budget_section = []
         if budget > 0:
             budget_section = [
                 ft.Container(height=16),
                 ft.Row([
                     ft.Text("月预算", size=12, color=TEXT_SECONDARY),
-                    ft.Text(f"¥{monthly_summary['expense']:.0f} / ¥{budget:.0f}",
-                            size=12, color=TEXT_SECONDARY),
+                    ft.Text(f"¥{monthly_summary['expense']:.0f} / ¥{budget:.0f}", 
+                           size=12, color=TEXT_SECONDARY),
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Container(height=8),
                 ft.Stack([
-                    ft.Container(
-                        bgcolor="#E8E8E8",
-                        border_radius=4,
-                        height=8,
-                    ),
+                    ft.Container(bgcolor="#E8E8E8", border_radius=4, height=8),
                     ft.Container(
                         bgcolor=budget_color,
                         border_radius=4,
@@ -383,7 +395,7 @@ def main(page: ft.Page):
                     ),
                 ]),
             ]
-
+        
         week_badge = []
         if weekly["last_week"]["expense"] > 0:
             week_badge = [
@@ -397,7 +409,7 @@ def main(page: ft.Page):
                     padding=ft.padding.symmetric(horizontal=8, vertical=2),
                 )
             ]
-
+        
         if today_records:
             records_content = [create_record_item(r) for r in today_records[:5]]
         else:
@@ -418,9 +430,8 @@ def main(page: ft.Page):
                     padding=40,
                 )
             ]
-
+        
         return ft.Column([
-            # 顶部渐变区域
             ft.Container(
                 content=ft.Column([
                     ft.Row([
@@ -436,40 +447,37 @@ def main(page: ft.Page):
                             ),
                         ], spacing=0),
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-
+                    
                     ft.Container(height=20),
-
-                    # 月度概览卡片
+                    
                     ft.Container(
                         content=ft.Column([
-                                              ft.Row(
-                                                  [ft.Text(f"{today.month}月概览", size=14,
-                                                           color=TEXT_SECONDARY)] + week_badge,
-                                                  alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-                                              ),
-                                              ft.Container(height=16),
-                                              ft.Row([
-                                                  ft.Column([
-                                                      ft.Text("支出", size=12, color=TEXT_SECONDARY),
-                                                      ft.Text(f"¥{monthly_summary['expense']:.2f}",
-                                                              size=22, weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY),
-                                                  ], expand=True),
-                                                  ft.Container(width=1, height=40, bgcolor="#E0E0E0"),
-                                                  ft.Column([
-                                                      ft.Text("收入", size=12, color=TEXT_SECONDARY),
-                                                      ft.Text(f"¥{monthly_summary['income']:.2f}",
-                                                              size=22, weight=ft.FontWeight.BOLD, color=INCOME_COLOR),
-                                                  ], expand=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                                                  ft.Container(width=1, height=40, bgcolor="#E0E0E0"),
-                                                  ft.Column([
-                                                      ft.Text("结余", size=12, color=TEXT_SECONDARY),
-                                                      ft.Text(f"¥{monthly_summary['balance']:.2f}",
-                                                              size=22, weight=ft.FontWeight.BOLD,
-                                                              color=INCOME_COLOR if monthly_summary[
-                                                                                        'balance'] >= 0 else EXPENSE_COLOR),
-                                                  ], expand=True, horizontal_alignment=ft.CrossAxisAlignment.END),
-                                              ]),
-                                          ] + budget_section),
+                            ft.Row(
+                                [ft.Text(f"{today.month}月概览", size=14, color=TEXT_SECONDARY)] + week_badge,
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                            ),
+                            ft.Container(height=16),
+                            ft.Row([
+                                ft.Column([
+                                    ft.Text("支出", size=12, color=TEXT_SECONDARY),
+                                    ft.Text(f"¥{monthly_summary['expense']:.2f}", 
+                                           size=22, weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY),
+                                ], expand=True),
+                                ft.Container(width=1, height=40, bgcolor="#E0E0E0"),
+                                ft.Column([
+                                    ft.Text("收入", size=12, color=TEXT_SECONDARY),
+                                    ft.Text(f"¥{monthly_summary['income']:.2f}", 
+                                           size=22, weight=ft.FontWeight.BOLD, color=INCOME_COLOR),
+                                ], expand=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                                ft.Container(width=1, height=40, bgcolor="#E0E0E0"),
+                                ft.Column([
+                                    ft.Text("结余", size=12, color=TEXT_SECONDARY),
+                                    ft.Text(f"¥{monthly_summary['balance']:.2f}", 
+                                           size=22, weight=ft.FontWeight.BOLD, 
+                                           color=INCOME_COLOR if monthly_summary['balance'] >= 0 else EXPENSE_COLOR),
+                                ], expand=True, horizontal_alignment=ft.CrossAxisAlignment.END),
+                            ]),
+                        ] + budget_section),
                         bgcolor=CARD_COLOR,
                         border_radius=20,
                         padding=20,
@@ -489,8 +497,7 @@ def main(page: ft.Page):
                 padding=ft.padding.only(left=20, right=20, top=50, bottom=30),
                 border_radius=ft.border_radius.only(bottom_left=30, bottom_right=30),
             ),
-
-            # 今日记录标题
+            
             ft.Container(
                 content=ft.Row([
                     ft.Text("今日记录", size=16, weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY),
@@ -502,8 +509,7 @@ def main(page: ft.Page):
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 padding=ft.padding.only(left=20, right=20, top=16, bottom=8),
             ),
-
-            # 记录列表
+            
             ft.Container(
                 content=ft.Column(records_content, spacing=0),
                 bgcolor=CARD_COLOR,
@@ -512,23 +518,23 @@ def main(page: ft.Page):
                 margin=ft.margin.only(left=16, right=16),
                 expand=True,
             ),
-
+            
             ft.Container(height=80),
         ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
-
+    
     def show_search_dialog():
         search_results = ft.Column([], scroll=ft.ScrollMode.AUTO, height=300)
-
+        
         def do_search(e):
             keyword = e.control.value
             if not keyword:
                 search_results.controls.clear()
                 page.update()
                 return
-
+            
             results = dm.search_records(keyword)
             search_results.controls.clear()
-
+            
             if not results:
                 search_results.controls.append(
                     ft.Container(
@@ -540,8 +546,7 @@ def main(page: ft.Page):
             else:
                 for r in results[:20]:
                     is_expense = r["type"] == "支出"
-
-                    # 兼容处理
+                    
                     cat_name = r["category"]
                     icon = r.get("icon", "💰")
                     if "icon" not in r and " " in cat_name:
@@ -549,7 +554,7 @@ def main(page: ft.Page):
                         if len(parts) == 2:
                             icon = parts[0]
                             cat_name = parts[1]
-
+                    
                     search_results.controls.append(
                         ft.Container(
                             content=ft.Row([
@@ -570,17 +575,17 @@ def main(page: ft.Page):
                         )
                     )
             page.update()
-
-        def close_dialog(e):
-            page.close(dlg)
-
+        
+        def close_search(e):
+            close_dialog(dlg)
+        
         search_field = ft.TextField(
             hint_text="搜索分类或备注...",
             border_radius=12,
             prefix_icon=ft.icons.SEARCH,
             on_change=do_search,
         )
-
+        
         dlg = ft.AlertDialog(
             modal=True,
             title=ft.Text("搜索记录", size=18, weight=ft.FontWeight.BOLD),
@@ -592,10 +597,10 @@ def main(page: ft.Page):
                 ]),
                 width=350,
             ),
-            actions=[ft.TextButton("关闭", on_click=close_dialog)],
+            actions=[ft.TextButton("关闭", on_click=close_search)],
         )
-        page.open(dlg)
-
+        show_dialog(dlg)
+    
     # ==================== 记账页 ====================
     def build_add_page():
         amount_field = ft.TextField(
@@ -608,7 +613,7 @@ def main(page: ft.Page):
             keyboard_type=ft.KeyboardType.NUMBER,
             color=TEXT_PRIMARY,
         )
-
+        
         note_field = ft.TextField(
             hint_text="添加备注...",
             border_radius=12,
@@ -616,42 +621,42 @@ def main(page: ft.Page):
             border_color="transparent",
             focused_border_color=PRIMARY_COLOR,
         )
-
+        
         date_text = ft.Text(
-            state["selected_date"],
-            size=14,
-            color=PRIMARY_COLOR,
+            state["selected_date"], 
+            size=14, 
+            color="white",
             weight=ft.FontWeight.W_500,
         )
-
+        
         category_grid = ft.GridView(
             runs_count=5,
             spacing=12,
             run_spacing=12,
             child_aspect_ratio=0.85,
         )
-
+        
         expense_text = ft.Text("支出", size=15, weight=ft.FontWeight.BOLD, color="white")
         income_text = ft.Text("收入", size=15, color="white70")
-
+        
         def on_date_change(e):
             if e.control.value:
                 state["selected_date"] = e.control.value.strftime("%Y-%m-%d")
                 date_text.value = state["selected_date"]
                 page.update()
-
+        
         date_picker = ft.DatePicker(
             first_date=datetime(2020, 1, 1),
             last_date=datetime(2030, 12, 31),
             on_change=on_date_change,
         )
         page.overlay.append(date_picker)
-
+        
         def select_type(t):
             state["selected_type"] = t
             state["selected_category"] = None
             state["selected_icon"] = None
-
+            
             if t == "支出":
                 expense_text.color = "white"
                 expense_text.weight = ft.FontWeight.BOLD
@@ -662,20 +667,21 @@ def main(page: ft.Page):
                 income_text.weight = ft.FontWeight.BOLD
                 expense_text.color = "white70"
                 expense_text.weight = None
-
+            
             update_categories()
             page.update()
-
+        
         def update_categories():
-            categories = dm.data["categories"].get(state["selected_type"], [])
-
+            categories = dm.data.get("categories", {}).get(state["selected_type"], [])
+            
             category_grid.controls.clear()
-
+            
             for cat in categories:
-                if isinstance(cat, str): continue
-
+                if isinstance(cat, str): 
+                    continue
+                
                 is_selected = state["selected_category"] == cat["name"]
-
+                
                 btn = ft.Container(
                     content=ft.Column([
                         ft.Container(
@@ -686,8 +692,8 @@ def main(page: ft.Page):
                             alignment=ft.alignment.center,
                         ),
                         ft.Text(
-                            cat["name"],
-                            size=12,
+                            cat["name"], 
+                            size=12, 
                             color=TEXT_PRIMARY if is_selected else TEXT_SECONDARY,
                             weight=ft.FontWeight.W_500 if is_selected else None,
                         ),
@@ -696,13 +702,13 @@ def main(page: ft.Page):
                     on_click=lambda e: select_category(e.control.data),
                 )
                 category_grid.controls.append(btn)
-
+        
         def select_category(cat):
             state["selected_category"] = cat["name"]
             state["selected_icon"] = cat["icon"]
             update_categories()
             page.update()
-
+        
         def on_quick_amount(amount):
             current = amount_field.value or "0"
             try:
@@ -711,11 +717,11 @@ def main(page: ft.Page):
             except:
                 amount_field.value = str(amount)
             page.update()
-
+        
         def clear_amount(e):
             amount_field.value = ""
             page.update()
-
+        
         def save_record(e):
             if not amount_field.value:
                 show_snackbar("请输入金额", EXPENSE_COLOR)
@@ -731,7 +737,7 @@ def main(page: ft.Page):
             except:
                 show_snackbar("请输入有效金额", EXPENSE_COLOR)
                 return
-
+            
             dm.add_record(
                 record_type=state["selected_type"],
                 amount=amount,
@@ -740,20 +746,19 @@ def main(page: ft.Page):
                 note=note_field.value or "",
                 date=state["selected_date"],
             )
-
+            
             amount_field.value = ""
             note_field.value = ""
             state["selected_category"] = None
             state["selected_icon"] = None
             update_categories()
-
+            
             show_snackbar("✓ 记账成功", INCOME_COLOR)
             refresh_all()
-
+        
         update_categories()
-
+        
         return ft.Column([
-            # 顶部
             ft.Container(
                 content=ft.Column([
                     ft.Container(
@@ -771,7 +776,7 @@ def main(page: ft.Page):
                         ], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
                         margin=ft.margin.only(top=40, bottom=20),
                     ),
-
+                    
                     ft.Row([
                         ft.Text("¥", size=28, color="white70"),
                         ft.Container(content=amount_field, expand=True),
@@ -782,7 +787,7 @@ def main(page: ft.Page):
                             on_click=clear_amount,
                         ),
                     ], alignment=ft.MainAxisAlignment.CENTER),
-
+                    
                     ft.Row([
                         ft.Container(
                             content=ft.Text(f"+{amt}", size=13, color="white"),
@@ -792,10 +797,10 @@ def main(page: ft.Page):
                             on_click=lambda e, a=amt: on_quick_amount(a),
                         ) for amt in state["quick_amounts"]
                     ], alignment=ft.MainAxisAlignment.CENTER, spacing=8,
-                        scroll=ft.ScrollMode.AUTO),
-
+                       scroll=ft.ScrollMode.AUTO),
+                    
                     ft.Container(height=16),
-
+                    
                     ft.Container(
                         content=ft.Row([
                             ft.Icon(ft.icons.CALENDAR_TODAY_OUTLINED, color="white70", size=18),
@@ -823,7 +828,7 @@ def main(page: ft.Page):
                 padding=ft.padding.only(bottom=24),
                 border_radius=ft.border_radius.only(bottom_left=30, bottom_right=30),
             ),
-
+            
             ft.Container(
                 content=ft.Column([
                     ft.Text("选择分类", size=15, weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY),
@@ -833,7 +838,7 @@ def main(page: ft.Page):
                 padding=ft.padding.only(left=20, right=20, top=20),
                 expand=True,
             ),
-
+            
             ft.Container(
                 content=ft.Column([
                     note_field,
@@ -853,20 +858,20 @@ def main(page: ft.Page):
                 padding=ft.padding.only(left=20, right=20, bottom=100),
             ),
         ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
-
+    
     # ==================== 统计页 ====================
     def build_stats_page():
         month_text = ft.Text(
             f"{state['stats_year']}年{state['stats_month']}月",
             size=16, weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY
         )
-
+        
         stats_type = ["支出"]
-
+        
         summary_container = ft.Column([])
         chart_container = ft.Column([])
         category_list = ft.Column([])
-
+        
         def change_month(delta):
             state["stats_month"] += delta
             if state["stats_month"] > 12:
@@ -876,54 +881,54 @@ def main(page: ft.Page):
                 state["stats_month"] = 12
                 state["stats_year"] -= 1
             refresh_stats()
-
+        
         def toggle_stats_type(t):
             stats_type[0] = t
             refresh_stats()
-
+        
         def refresh_stats():
             month_text.value = f"{state['stats_year']}年{state['stats_month']}月"
             summary = dm.get_monthly_summary(state["stats_year"], state["stats_month"])
             category_stats = dm.get_category_stats(state["stats_year"], state["stats_month"], stats_type[0])
-            total = sum(c["amount"] for c in category_stats)
-
+            total = sum(c["amount"] for c in category_stats) if category_stats else 0
+            
             summary_container.controls = [
                 ft.Row([
                     ft.Column([
                         ft.Text("总支出", size=12, color=TEXT_SECONDARY),
-                        ft.Text(f"¥{summary['expense']:.2f}", size=20,
-                                weight=ft.FontWeight.BOLD, color=EXPENSE_COLOR),
+                        ft.Text(f"¥{summary['expense']:.2f}", size=20, 
+                               weight=ft.FontWeight.BOLD, color=EXPENSE_COLOR),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                     ft.Container(width=1, height=40, bgcolor="#E8E8E8"),
                     ft.Column([
                         ft.Text("总收入", size=12, color=TEXT_SECONDARY),
-                        ft.Text(f"¥{summary['income']:.2f}", size=20,
-                                weight=ft.FontWeight.BOLD, color=INCOME_COLOR),
+                        ft.Text(f"¥{summary['income']:.2f}", size=20, 
+                               weight=ft.FontWeight.BOLD, color=INCOME_COLOR),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                     ft.Container(width=1, height=40, bgcolor="#E8E8E8"),
                     ft.Column([
                         ft.Text("笔数", size=12, color=TEXT_SECONDARY),
-                        ft.Text(f"{summary['count']}", size=20,
-                                weight=ft.FontWeight.BOLD, color=PRIMARY_COLOR),
+                        ft.Text(f"{summary['count']}", size=20, 
+                               weight=ft.FontWeight.BOLD, color=PRIMARY_COLOR),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                 ]),
             ]
-
+            
             chart_container.controls = [
                 ft.Row([
                     ft.Container(
-                        content=ft.Text("支出", size=13,
-                                        color="white" if stats_type[0] == "支出" else TEXT_SECONDARY,
-                                        weight=ft.FontWeight.W_500),
+                        content=ft.Text("支出", size=13, 
+                                       color="white" if stats_type[0] == "支出" else TEXT_SECONDARY,
+                                       weight=ft.FontWeight.W_500),
                         bgcolor=EXPENSE_COLOR if stats_type[0] == "支出" else "#F0F0F0",
                         border_radius=20,
                         padding=ft.padding.symmetric(horizontal=20, vertical=8),
                         on_click=lambda e: toggle_stats_type("支出"),
                     ),
                     ft.Container(
-                        content=ft.Text("收入", size=13,
-                                        color="white" if stats_type[0] == "收入" else TEXT_SECONDARY,
-                                        weight=ft.FontWeight.W_500),
+                        content=ft.Text("收入", size=13, 
+                                       color="white" if stats_type[0] == "收入" else TEXT_SECONDARY,
+                                       weight=ft.FontWeight.W_500),
                         bgcolor=INCOME_COLOR if stats_type[0] == "收入" else "#F0F0F0",
                         border_radius=20,
                         padding=ft.padding.symmetric(horizontal=20, vertical=8),
@@ -931,19 +936,19 @@ def main(page: ft.Page):
                     ),
                 ], alignment=ft.MainAxisAlignment.CENTER, spacing=12),
             ]
-
+            
             category_list.controls.clear()
             if category_stats:
                 for cat in category_stats[:8]:
                     pct = (cat["amount"] / total * 100) if total > 0 else 0
                     bar_color = EXPENSE_COLOR if stats_type[0] == "支出" else INCOME_COLOR
-
+                    
                     category_list.controls.append(
                         ft.Container(
                             content=ft.Column([
                                 ft.Row([
                                     ft.Container(
-                                        content=ft.Text(cat["icon"], size=20),
+                                        content=ft.Text(cat.get("icon", "💰"), size=20),
                                         width=40, height=40,
                                         bgcolor=bar_color + "15",
                                         border_radius=10,
@@ -955,23 +960,19 @@ def main(page: ft.Page):
                                         ft.Text(f"{cat['count']}笔", size=11, color=TEXT_SECONDARY),
                                     ], spacing=2, expand=True),
                                     ft.Column([
-                                        ft.Text(f"¥{cat['amount']:.2f}", size=14,
-                                                weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY),
+                                        ft.Text(f"¥{cat['amount']:.2f}", size=14, 
+                                               weight=ft.FontWeight.BOLD, color=TEXT_PRIMARY),
                                         ft.Text(f"{pct:.1f}%", size=11, color=TEXT_SECONDARY),
                                     ], horizontal_alignment=ft.CrossAxisAlignment.END, spacing=2),
                                 ]),
                                 ft.Container(height=8),
                                 ft.Stack([
-                                    ft.Container(
-                                        bgcolor="#F0F0F0",
-                                        border_radius=3,
-                                        height=6,
-                                    ),
+                                    ft.Container(bgcolor="#F0F0F0", border_radius=3, height=6),
                                     ft.Container(
                                         bgcolor=bar_color,
                                         border_radius=3,
                                         height=6,
-                                        width=pct * 2.8,
+                                        width=max(pct * 2.5, 5),
                                     ),
                                 ]),
                             ]),
@@ -989,11 +990,11 @@ def main(page: ft.Page):
                         padding=40,
                     )
                 )
-
+            
             page.update()
-
+        
         refresh_stats()
-
+        
         return ft.Column([
             ft.Container(
                 content=ft.Column([
@@ -1027,7 +1028,7 @@ def main(page: ft.Page):
                 padding=ft.padding.only(bottom=24),
                 border_radius=ft.border_radius.only(bottom_left=30, bottom_right=30),
             ),
-
+            
             ft.Container(
                 content=ft.Column([
                     create_card(summary_container),
@@ -1045,19 +1046,22 @@ def main(page: ft.Page):
                 padding=ft.padding.only(top=16),
             ),
         ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
-
+    
     # ==================== 设置页 ====================
     def build_settings_page():
+        budget_value = dm.data.get("settings", {}).get("monthly_budget", 0)
         budget_field = ft.TextField(
-            value=str(dm.data["settings"].get("monthly_budget", 0)),
+            value=str(budget_value) if budget_value > 0 else "",
             keyboard_type=ft.KeyboardType.NUMBER,
             border_radius=12,
-            prefix_text="¥ ",
+            hint_text="输入预算金额",
         )
-
+        
         def save_budget(e):
             try:
                 budget = float(budget_field.value or 0)
+                if "settings" not in dm.data:
+                    dm.data["settings"] = {}
                 dm.data["settings"]["monthly_budget"] = budget
                 now = datetime.now()
                 dm.set_monthly_budget(now.year, now.month, budget)
@@ -1065,26 +1069,26 @@ def main(page: ft.Page):
                 refresh_all()
             except:
                 show_snackbar("请输入有效金额", EXPENSE_COLOR)
-
+        
         def export_data(e):
             try:
                 data_str = json.dumps(dm.data, ensure_ascii=False, indent=2)
                 page.set_clipboard(data_str)
                 show_snackbar("数据已复制到剪贴板", INCOME_COLOR)
             except Exception as ex:
-                show_snackbar(f"导出失败", EXPENSE_COLOR)
-
+                show_snackbar("导出失败", EXPENSE_COLOR)
+        
         def clear_data(e):
             def confirm(e):
                 dm.data["records"] = []
                 dm.save_data()
-                page.close(dlg)
+                close_dialog(dlg)
                 refresh_all()
                 show_snackbar("数据已清空", "#F39C12")
-
+            
             def cancel(e):
-                page.close(dlg)
-
+                close_dialog(dlg)
+            
             dlg = ft.AlertDialog(
                 modal=True,
                 title=ft.Row([
@@ -1092,12 +1096,12 @@ def main(page: ft.Page):
                     ft.Container(width=8),
                     ft.Text("确认清空", size=18, weight=ft.FontWeight.BOLD),
                 ]),
-                content=ft.Text("此操作将删除所有记账数据，且无法恢复。",
-                                size=14, color=TEXT_SECONDARY),
+                content=ft.Text("此操作将删除所有记账数据，且无法恢复。", 
+                               size=14, color=TEXT_SECONDARY),
                 actions=[
                     ft.TextButton("取消", on_click=cancel),
                     ft.ElevatedButton(
-                        "确认清空",
+                        "确认清空", 
                         bgcolor=EXPENSE_COLOR,
                         color="white",
                         on_click=confirm,
@@ -1105,12 +1109,12 @@ def main(page: ft.Page):
                 ],
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            page.open(dlg)
-
+            show_dialog(dlg)
+        
         def show_about(e):
-            def close_dlg(e):
-                page.close(dlg)
-
+            def close_about(e):
+                close_dialog(dlg)
+            
             dlg = ft.AlertDialog(
                 title=ft.Row([
                     ft.Text("🐰", size=28),
@@ -1123,10 +1127,10 @@ def main(page: ft.Page):
                     ft.Text("一款简洁优雅的个人记账应用", size=14),
                     ft.Text("使用 Python + Flet 开发", size=14, color=TEXT_SECONDARY),
                 ], tight=True, spacing=4),
-                actions=[ft.TextButton("关闭", on_click=close_dlg)],
+                actions=[ft.TextButton("关闭", on_click=close_about)],
             )
-            page.open(dlg)
-
+            show_dialog(dlg)
+        
         def create_setting_item(icon, title, subtitle, action=None):
             return ft.Container(
                 content=ft.Row([
@@ -1147,11 +1151,11 @@ def main(page: ft.Page):
                 padding=ft.padding.symmetric(vertical=12, horizontal=4),
                 on_click=action,
             )
-
-        total_records = len(dm.data["records"])
-        total_expense = sum(r["amount"] for r in dm.data["records"] if r["type"] == "支出")
-        total_income = sum(r["amount"] for r in dm.data["records"] if r["type"] == "收入")
-
+        
+        total_records = len(dm.data.get("records", []))
+        total_expense = sum(r["amount"] for r in dm.data.get("records", []) if r.get("type") == "支出")
+        total_income = sum(r["amount"] for r in dm.data.get("records", []) if r.get("type") == "收入")
+        
         return ft.Column([
             ft.Container(
                 content=ft.Column([
@@ -1166,29 +1170,29 @@ def main(page: ft.Page):
                 padding=ft.padding.only(bottom=24),
                 border_radius=ft.border_radius.only(bottom_left=30, bottom_right=30),
             ),
-
+            
             ft.Container(
                 content=ft.Column([
                     create_card(
                         ft.Row([
                             ft.Column([
-                                ft.Text(f"{total_records}", size=24, weight=ft.FontWeight.BOLD,
-                                        color=PRIMARY_COLOR),
+                                ft.Text(f"{total_records}", size=24, weight=ft.FontWeight.BOLD, 
+                                       color=PRIMARY_COLOR),
                                 ft.Text("总记录", size=12, color=TEXT_SECONDARY),
                             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                             ft.Column([
-                                ft.Text(f"¥{total_expense:.0f}", size=24, weight=ft.FontWeight.BOLD,
-                                        color=EXPENSE_COLOR),
+                                ft.Text(f"¥{total_expense:.0f}", size=24, weight=ft.FontWeight.BOLD, 
+                                       color=EXPENSE_COLOR),
                                 ft.Text("总支出", size=12, color=TEXT_SECONDARY),
                             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                             ft.Column([
-                                ft.Text(f"¥{total_income:.0f}", size=24, weight=ft.FontWeight.BOLD,
-                                        color=INCOME_COLOR),
+                                ft.Text(f"¥{total_income:.0f}", size=24, weight=ft.FontWeight.BOLD, 
+                                       color=INCOME_COLOR),
                                 ft.Text("总收入", size=12, color=TEXT_SECONDARY),
                             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                         ]),
                     ),
-
+                    
                     create_card(
                         ft.Column([
                             ft.Text("月度预算", size=15, weight=ft.FontWeight.BOLD),
@@ -1205,33 +1209,33 @@ def main(page: ft.Page):
                             ]),
                         ]),
                     ),
-
+                    
                     create_card(
                         ft.Column([
                             create_setting_item(
-                                ft.icons.UPLOAD_OUTLINED,
-                                "导出数据",
+                                ft.icons.UPLOAD_OUTLINED, 
+                                "导出数据", 
                                 "复制数据到剪贴板",
                                 action=export_data,
                             ),
                             ft.Divider(height=1, color="#F0F0F0"),
                             create_setting_item(
-                                ft.icons.DELETE_OUTLINE,
-                                "清空数据",
+                                ft.icons.DELETE_OUTLINE, 
+                                "清空数据", 
                                 "删除所有记账记录",
                                 action=clear_data,
                             ),
                             ft.Divider(height=1, color="#F0F0F0"),
                             create_setting_item(
-                                ft.icons.INFO_OUTLINE,
-                                "关于",
+                                ft.icons.INFO_OUTLINE, 
+                                "关于", 
                                 "版本信息",
                                 action=show_about,
                             ),
                         ], spacing=0),
                         padding_val=ft.padding.symmetric(horizontal=16, vertical=8),
                     ),
-
+                    
                     ft.Container(
                         content=ft.Column([
                             ft.Text("Made with ❤️ by Roro", size=12, color=TEXT_SECONDARY),
@@ -1240,34 +1244,34 @@ def main(page: ft.Page):
                         alignment=ft.alignment.center,
                         padding=30,
                     ),
-
+                    
                     ft.Container(height=80),
                 ], spacing=0),
                 expand=True,
                 padding=ft.padding.only(top=16),
             ),
         ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
-
+    
     # ==================== 导航 ====================
     pages_content = [ft.Container(expand=True) for _ in range(4)]
     content_area = ft.Container(content=pages_content[0], expand=True)
-
+    
     def refresh_all():
         pages_content[0].content = build_home_page()
         pages_content[1].content = build_add_page()
         pages_content[2].content = build_stats_page()
         pages_content[3].content = build_settings_page()
         page.update()
-
+    
     def switch_page(index):
         nav_bar.selected_index = index
         content_area.content = pages_content[index]
         page.update()
-
+    
     def on_nav_change(e):
         content_area.content = pages_content[e.control.selected_index]
         page.update()
-
+    
     nav_bar = ft.NavigationBar(
         selected_index=0,
         bgcolor="white",
@@ -1275,17 +1279,16 @@ def main(page: ft.Page):
         on_change=on_nav_change,
         destinations=[
             ft.NavigationBarDestination(icon=ft.icons.HOME_OUTLINED, selected_icon=ft.icons.HOME, label="首页"),
-            ft.NavigationBarDestination(icon=ft.icons.ADD_CIRCLE_OUTLINE, selected_icon=ft.icons.ADD_CIRCLE,
-                                        label="记账"),
-            ft.NavigationBarDestination(icon=ft.icons.PIE_CHART_OUTLINE, selected_icon=ft.icons.PIE_CHART,
-                                        label="统计"),
+            ft.NavigationBarDestination(icon=ft.icons.ADD_CIRCLE_OUTLINE, selected_icon=ft.icons.ADD_CIRCLE, label="记账"),
+            ft.NavigationBarDestination(icon=ft.icons.PIE_CHART_OUTLINE, selected_icon=ft.icons.PIE_CHART, label="统计"),
             ft.NavigationBarDestination(icon=ft.icons.SETTINGS_OUTLINED, selected_icon=ft.icons.SETTINGS, label="设置"),
         ],
         height=65,
     )
-
+    
+    # 初始化
     refresh_all()
-
+    
     page.add(
         ft.Stack([
             ft.Column([content_area], spacing=0, expand=True),
@@ -1299,5 +1302,6 @@ def main(page: ft.Page):
     )
 
 
+# ==================== 程序入口 ====================
 if __name__ == "__main__":
     ft.app(target=main)
