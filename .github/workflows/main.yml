@@ -1,0 +1,29 @@
+name: Build Android APK
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install Dependencies
+      run: pip install flet
+      
+    - name: Flet Build APK
+      # 这里注意替换你的文件名和APP名字
+      run: |
+        flet build apk --module_name main --org com.roro.app --product_name "Roro记账" --include_packages flet
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: Roro-Accounting-APK
+        path: build/apk/*.apk
